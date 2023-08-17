@@ -37,7 +37,7 @@ youtube = build('youtube','v3',developerKey=API_KEY)
 
 #Homepage
 selected = option_menu(None, ["Home", "Upload",'Questions','Analysis'], 
-    #icons=['house', 'upload', 'question',], 
+    icons=['house', 'upload', 'question','bar-chart'], 
     menu_icon="cast",default_index=0, orientation="horizontal")
 #selected
 
@@ -110,16 +110,39 @@ if selected == "Home":
             unsafe_allow_html=True)
 
 # Bridging a connection with MongoDB Atlas and Creating a new database(youtube_data)
-client = pymongo.MongoClient("")
-db = ""
+client = pymongo.MongoClient("mongodb://localhost:27017")
+db = ''
 
 # CONNECTING WITH MYSQL DATABASE
-mydb = mysql.connector.connect(host="",
-                   user="",
+mydb = mysql.connector.connect(host="127.0.0.1",
+                   user="root",
                    password="",
                    database= ""
                    )
 mycursor = mydb.cursor(buffered=True)
+
+ #Get the channelid by giving the channel name
+def get_channel_id_by_name(channel_name):
+    #youtube = googleapiclient.discovery.build('youtube', 'v3', developerKey=API_KEY)
+
+    # Send a search query for the channel name
+    search_response = youtube.search().list(
+        q=channel_name,
+        type='channel',
+        part='id,snippet',
+        maxResults=1
+    ).execute()
+
+    # Extract the channel ID from the response
+    if 'items' in search_response:
+        items = search_response['items']
+        if len(items) > 0:
+            channel_id = items[0]['id']['channelId']
+            return channel_id
+
+    # If the channel name is not found or there was an error, return None
+    return None
+
 
 # FUNCTION TO GET CHANNEL DETAILS
 def get_channel_details(channel_id):
@@ -240,28 +263,6 @@ def channel_names():
         ch_name.append(i['Channel_name'])
     return ch_name
 
-    #Get the channelid by giving the channel name
-def get_channel_id_by_name(channel_name):
-    #youtube = googleapiclient.discovery.build('youtube', 'v3', developerKey=API_KEY)
-
-    # Send a search query for the channel name
-    search_response = youtube.search().list(
-        q=channel_name,
-        type='channel',
-        part='id,snippet',
-        maxResults=1
-    ).execute()
-
-    # Extract the channel ID from the response
-    if 'items' in search_response:
-        items = search_response['items']
-        if len(items) > 0:
-            channel_id = items[0]['id']['channelId']
-            return channel_id
-
-    # If the channel name is not found or there was an error, return None
-    return None
-
 
 # EXTRACT AND Migrate
 if selected == "Upload":
@@ -274,20 +275,37 @@ if selected == "Upload":
             if channel_name:
                channel_id = get_channel_id_by_name(channel_name)
                if channel_id:
-                st.success(f"The channel ID for '{channel_name}' is: {channel_id}")
+                st.markdown(f'<p style="color: white;">The channel ID for \'{channel_name}\' is: {channel_id}</p>', unsafe_allow_html=True)
                 st.snow()
             else:
                 st.error(f"Channel '{channel_name}' not found or an error occurred.")
         #st.markdown("#    ")
         st.markdown("<h2 style='text-align:left; color: white;'>Enter YouTube Channel_ID</h1>", unsafe_allow_html=True)
-        ch_id = st.text_input("Hint : Copy and Paste the Channel_id from the above Success message").split(',')
+        hint_markup = '<p style="color: white;">Hint: Copy and Paste the Channel_id from the above Success message</p>'
+        ch_id_input = st.markdown(hint_markup, unsafe_allow_html=True)
+        ch_id = st.text_input("").split(',')
 
         if ch_id and st.button("🧠 Extract Data"):
             ch_details = get_channel_details(ch_id)
-            st.write(f'#### Extracted data from :blue["{ch_details[0]["Channel_name"]}"] channel')
+            st.write(f'<h4 style="color: white;">Extracted data from {ch_details[0]["Channel_name"]} channel</h4>', unsafe_allow_html=True)
             st.table(ch_details)
             st.success("Extracted successfully !!",icon="✅")
             st.balloons()
+            st.markdown("""
+                    <style>
+                    /* Existing CSS styles */
+
+                    /* Customize the background color of st.table */
+                    div[data-testid="stTable"] {
+                    background-color: #E5E4E2; /* Change this color to your desired background color */
+                    border-radius: 10px; /* Add rounded corners */
+                    padding: 10px; /* Add padding for better spacing */
+                    }
+
+                    /* Existing CSS styles */
+                    </style>
+                    """, unsafe_allow_html=True)
+            
 
         if st.button("🍃 Upload to MongoDB"):
             with st.spinner('Please Wait a sec...'):
@@ -352,7 +370,7 @@ if selected == "Upload":
                 insert_into_channels()
                 insert_into_videos()
                 insert_into_comments()
-                st.success("Transformation to MySQL Successful !!",icon="✅")
+                st.success("Migration to MySQL Successful !!",icon="✅")
                 st.balloons()
             except:
                 st.error("Channel details already transformed !!",icon="🚨")
